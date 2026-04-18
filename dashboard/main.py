@@ -15,7 +15,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="DB Benchmark Dashboard", version="1.0.0")
+app = FastAPI(title="PitLane Dashboard", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,

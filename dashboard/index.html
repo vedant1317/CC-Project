@@ -3,617 +3,1327 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DB Benchmark Dashboard</title>
-  <meta name="description" content="Live performance comparison dashboard for PostgreSQL, DynamoDB, and MongoDB across 5 e-commerce query scenarios." />
+  <title>PitLane Dashboard</title>
+  <meta
+    name="description"
+    content="PitLane dashboard for PostgreSQL, DynamoDB Local, and MongoDB latency analysis."
+  />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:        #0d1117;
-      --surface:   #161b22;
-      --surface2:  #1c2128;
-      --border:    #30363d;
-      --text:      #e6edf3;
-      --muted:     #8b949e;
-      --pg:        #60a5fa;
-      --dynamo:    #34d399;
-      --mongo:     #fb923c;
-      --purple:    #a78bfa;
-      --radius:    12px;
+      --background: 0 0% 100%;
+      --foreground: 222 47% 11%;
+      --card: 0 0% 100%;
+      --card-foreground: 222 47% 11%;
+      --muted: 210 40% 97%;
+      --muted-foreground: 215 16% 36%;
+      --border: 214 28% 88%;
+      --input: 214 28% 88%;
+      --ring: 221 83% 53%;
+      --radius: 0.75rem;
+
+      --postgres: 219 78% 49%;
+      --dynamo: 158 79% 31%;
+      --mongodb: 24 95% 45%;
+
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.08);
+      --shadow-md: 0 12px 28px rgba(15, 23, 42, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
     body {
-      font-family: "Inter", system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: "Public Sans", "Segoe UI", sans-serif;
+      color: hsl(var(--foreground));
+      background-color: hsl(var(--background));
+      color-scheme: light;
       min-height: 100vh;
-      padding: 2rem 2.5rem;
+      line-height: 1.5;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      padding: 1.6rem;
     }
 
-    /* ── Header ── */
-    header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      margin-bottom: 2rem;
-      flex-wrap: wrap;
+    .app-shell {
+      max-width: 1320px;
+      margin: 0 auto;
+      display: grid;
       gap: 1rem;
     }
 
-    .header-left h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      background: linear-gradient(135deg, #e6edf3 0%, #8b949e 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    .hidden {
+      display: none !important;
     }
 
-    .header-left .subtitle {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-top: 0.3rem;
+    .state-shell {
+      max-width: 1320px;
+      margin: 10vh auto 0;
+      border: 1px solid hsl(var(--border));
+      border-radius: var(--radius);
+      background: hsl(var(--card));
+      box-shadow: var(--shadow-sm);
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 1.5rem;
+      color: hsl(var(--muted-foreground));
     }
 
-    .header-left .subtitle span {
-      display: inline-block;
-      padding: 0.15rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      margin-right: 0.3rem;
+    .spinner {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 3px solid hsl(var(--border));
+      border-top-color: hsl(var(--ring));
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 0.8rem;
     }
 
-    .tag-pg     { background: rgba(96,165,250,0.12); color: var(--pg); }
-    .tag-dynamo { background: rgba(52,211,153,0.12); color: var(--dynamo); }
-    .tag-mongo  { background: rgba(251,146,60,0.12); color: var(--mongo); }
+    .ui-card {
+      background: hsl(var(--card));
+      border: 1px solid hsl(var(--border));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+    }
 
-    .refresh-btn {
+    .app-header {
       display: flex;
       align-items: center;
-      gap: 0.4rem;
-      padding: 0.5rem 1rem;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      font-size: 0.8rem;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all .2s;
-    }
-    .refresh-btn:hover { border-color: var(--purple); color: var(--purple); }
-
-    /* ── Summary Cards ── */
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      justify-content: space-between;
       gap: 1rem;
-      margin-bottom: 1.75rem;
+      padding: 1rem 1.2rem;
     }
 
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.25rem 1.5rem;
-      position: relative;
-      overflow: hidden;
-      transition: border-color .2s, transform .2s;
-    }
-    .card:hover { transform: translateY(-2px); }
-
-    .card::before {
-      content: "";
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-    }
-    .card.pg-card::before    { background: var(--pg); }
-    .card.dynamo-card::before { background: var(--dynamo); }
-    .card.mongo-card::before { background: var(--mongo); }
-
-    .card .db-label {
-      font-size: 0.7rem;
+    .eyebrow {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 0.75rem;
+      color: hsl(var(--muted-foreground));
+      margin-bottom: 0.2rem;
     }
 
-    .card .big-value {
-      font-size: 2.2rem;
-      font-weight: 700;
-      line-height: 1;
-      margin-bottom: 0.25rem;
-    }
-    .card .big-unit {
-      font-size: 1rem;
-      font-weight: 400;
-      color: var(--muted);
-      margin-left: 0.15rem;
+    .title {
+      font-family: "Sora", "Segoe UI", sans-serif;
+      font-size: clamp(1.15rem, 1vw + 0.9rem, 1.7rem);
+      letter-spacing: -0.02em;
+      font-weight: 600;
+      color: hsl(var(--foreground));
     }
 
-    .card .metrics-row {
+    .subtitle {
+      color: hsl(var(--muted-foreground));
+      font-size: 0.87rem;
+      margin-top: 0.25rem;
+    }
+
+    .header-actions {
       display: flex;
-      gap: 1.25rem;
-      margin-top: 0.75rem;
+      align-items: center;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
-    .card .metric { font-size: 0.72rem; color: var(--muted); }
-    .card .metric strong { color: var(--text); font-weight: 600; }
 
-    .pg-val    { color: var(--pg); }
-    .dynamo-val { color: var(--dynamo); }
-    .mongo-val { color: var(--mongo); }
+    .time-pill {
+      border: 1px solid hsl(var(--border));
+      border-radius: 999px;
+      padding: 0.35rem 0.7rem;
+      font-size: 0.76rem;
+      color: hsl(var(--muted-foreground));
+      background: hsl(var(--muted));
+      white-space: nowrap;
+    }
 
-    /* ── Scenario Filter ── */
-    .filter-bar {
+    .ui-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      border-radius: calc(var(--radius) - 2px);
+      font-size: 0.84rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      padding: 0.5rem 0.8rem;
+      cursor: pointer;
+      transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+
+    .ui-button:focus-visible,
+    .ui-select:focus-visible,
+    .ui-input:focus-visible,
+    .sort-button:focus-visible,
+    .tabs-trigger:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px hsla(var(--ring), 0.22);
+    }
+
+    .ui-button:active {
+      transform: translateY(1px);
+    }
+
+    .ui-button-outline {
+      background: hsl(var(--card));
+      border-color: hsl(var(--border));
+      color: hsl(var(--foreground));
+    }
+
+    .ui-button-outline:hover {
+      background: hsl(var(--muted));
+      border-color: hsl(var(--ring));
+    }
+
+    .refresh-icon {
+      display: inline-flex;
+      width: 14px;
+      height: 14px;
+      transition: transform 240ms ease;
+    }
+
+    .ui-button.is-loading .refresh-icon {
+      animation: spin 0.85s linear infinite;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.9rem;
+    }
+
+    .kpi-card {
+      padding: 0.9rem 1rem;
+      display: grid;
+      gap: 0.65rem;
+      border-top: 2px solid transparent;
+      transition: transform 190ms ease, box-shadow 190ms ease;
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .kpi-card[data-db="postgres"] { border-top-color: hsl(var(--postgres)); }
+    .kpi-card[data-db="dynamo"] { border-top-color: hsl(var(--dynamo)); }
+    .kpi-card[data-db="mongodb"] { border-top-color: hsl(var(--mongodb)); }
+
+    .db-name {
+      font-size: 0.78rem;
+      color: hsl(var(--muted-foreground));
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .kpi-value {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 1.8rem;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      color: hsl(var(--foreground));
+      font-weight: 500;
+    }
+
+    .kpi-value small {
+      font-size: 0.75rem;
+      color: hsl(var(--muted-foreground));
+      margin-left: 0.2rem;
+      font-family: "Public Sans", "Segoe UI", sans-serif;
+      font-weight: 500;
+    }
+
+    .kpi-meta {
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.74rem;
+    }
+
+    .kpi-meta strong {
+      color: hsl(var(--foreground));
+      font-family: "IBM Plex Mono", monospace;
+      font-weight: 500;
+    }
+
+    .controls-card {
+      padding: 0.95rem 1rem;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(270px, 1.1fr) minmax(210px, 1fr);
+      gap: 0.8rem;
+      align-items: end;
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 0.4rem;
+      font-size: 0.74rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .ui-select,
+    .ui-input {
+      width: 100%;
+      height: 38px;
+      border: 1px solid hsl(var(--input));
+      border-radius: calc(var(--radius) - 2px);
+      background: hsl(var(--card));
+      color: hsl(var(--foreground));
+      font-size: 0.84rem;
+      padding: 0 0.75rem;
+      transition: border-color 180ms ease, background-color 180ms ease;
+      font-family: "Public Sans", "Segoe UI", sans-serif;
+    }
+
+    .ui-select:hover,
+    .ui-input:hover {
+      border-color: hsl(var(--ring));
+    }
+
+    .ui-tabs-list {
+      display: inline-flex;
+      width: 100%;
+      background: hsl(var(--muted));
+      border: 1px solid hsl(var(--border));
+      padding: 0.2rem;
+      border-radius: calc(var(--radius) - 2px);
+      gap: 0.25rem;
+    }
+
+    .tabs-trigger {
+      border: 0;
+      background: transparent;
+      border-radius: calc(var(--radius) - 4px);
+      padding: 0.4rem 0.55rem;
+      flex: 1;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: hsl(var(--muted-foreground));
+      cursor: pointer;
+      transition: color 180ms ease, background-color 180ms ease;
+    }
+
+    .tabs-trigger:hover {
+      color: hsl(var(--foreground));
+    }
+
+    .tabs-trigger.active {
+      background: hsl(var(--card));
+      color: hsl(var(--foreground));
+      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+    }
+
+    .winners-card {
+      padding: 0.85rem 1rem;
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+    }
+
+    .section-head h2 {
+      font-family: "Sora", "Segoe UI", sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .section-note {
+      font-size: 0.76rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .winner-strip {
       display: flex;
       gap: 0.5rem;
       flex-wrap: wrap;
-      margin-bottom: 1.5rem;
-      align-items: center;
     }
-    .filter-bar label { font-size: 0.75rem; color: var(--muted); margin-right: 0.25rem; }
 
-    .filter-chip {
-      padding: 0.3rem 0.8rem;
+    .winner-item {
+      border: 1px solid hsl(var(--border));
       border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--muted);
-      font-size: 0.72rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all .2s;
-    }
-    .filter-chip.active, .filter-chip:hover {
-      border-color: var(--purple);
-      color: var(--purple);
-      background: rgba(167,139,250,0.08);
+      padding: 0.28rem 0.58rem;
+      font-size: 0.75rem;
+      background: hsl(var(--card));
+      color: hsl(var(--muted-foreground));
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: border-color 180ms ease, transform 180ms ease;
     }
 
-    /* ── Charts ── */
-    .charts-grid {
+    .winner-item:hover {
+      transform: translateY(-1px);
+    }
+
+    .winner-item .db-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+
+    .visual-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
-      gap: 1.25rem;
-      margin-bottom: 1.75rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.9rem;
     }
 
     .chart-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.5rem;
+      padding: 0.9rem 1rem 1rem;
+      min-height: 340px;
+      display: grid;
+      grid-template-rows: auto 1fr;
     }
 
-    .chart-card h3 {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--muted);
-      margin-bottom: 1.25rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+    .chart-wrap {
+      min-height: 260px;
     }
 
-    .chart-card h3 .dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    /* ── Table ── */
     .table-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
       overflow: hidden;
     }
 
     .table-header {
-      padding: 1.25rem 1.5rem 1rem;
-      border-bottom: 1px solid var(--border);
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid hsl(var(--border));
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
     }
 
-    .table-header h2 {
-      font-size: 0.9rem;
-      font-weight: 600;
-    }
-
-    .table-header .row-count {
-      font-size: 0.72rem;
-      color: var(--muted);
-      background: var(--surface2);
-      padding: 0.2rem 0.6rem;
+    .row-count {
+      border: 1px solid hsl(var(--border));
       border-radius: 999px;
-      border: 1px solid var(--border);
+      padding: 0.26rem 0.62rem;
+      font-size: 0.74rem;
+      color: hsl(var(--muted-foreground));
+      background: hsl(var(--muted));
     }
 
-    table { width: 100%; border-collapse: collapse; }
+    .table-wrap {
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 880px;
+    }
 
     thead th {
-      padding: 0.6rem 1.5rem;
-      text-align: left;
-      font-size: 0.7rem;
+      font-size: 0.72rem;
+      color: hsl(var(--muted-foreground));
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--muted);
-      background: var(--surface2);
-      border-bottom: 1px solid var(--border);
+      letter-spacing: 0.05em;
+      text-align: left;
+      background: hsl(var(--muted));
+      border-bottom: 1px solid hsl(var(--border));
+      white-space: nowrap;
+    }
+
+    thead th,
+    tbody td {
+      padding: 0.63rem 0.9rem;
     }
 
     tbody tr {
-      border-bottom: 1px solid #1c2128;
-      transition: background .15s;
-    }
-    tbody tr:hover { background: var(--surface2); }
-    tbody tr:last-child { border-bottom: none; }
-
-    tbody td {
-      padding: 0.65rem 1.5rem;
-      font-size: 0.82rem;
+      border-bottom: 1px solid hsl(var(--border));
+      transition: background-color 160ms ease;
     }
 
-    .scenario-cell { font-weight: 500; }
-
-    .badge {
-      display: inline-block;
-      padding: 0.2rem 0.65rem;
-      border-radius: 999px;
-      font-size: 0.68rem;
-      font-weight: 600;
+    tbody tr:hover {
+      background: hsl(var(--muted));
     }
-    .badge-pg     { background: rgba(96,165,250,0.12); color: var(--pg); }
-    .badge-dynamo { background: rgba(52,211,153,0.12); color: var(--dynamo); }
-    .badge-mongo  { background: rgba(251,146,60,0.12); color: var(--mongo); }
 
-    .winner-badge {
+    .sort-button {
+      border: 0;
+      background: transparent;
+      color: inherit;
       display: inline-flex;
       align-items: center;
-      gap: 0.3rem;
-      font-size: 0.68rem;
-      font-weight: 600;
-      color: var(--purple);
-      background: rgba(167,139,250,0.1);
-      padding: 0.2rem 0.55rem;
-      border-radius: 4px;
+      gap: 0.26rem;
+      font: inherit;
+      letter-spacing: inherit;
+      text-transform: inherit;
+      cursor: pointer;
+      padding: 0;
     }
 
-    .latency-cell {
-      font-feature-settings: "tnum";
-      font-variant-numeric: tabular-nums;
+    .sort-button .arrow {
+      color: hsl(var(--muted-foreground));
+      font-size: 0.65rem;
+      transform: translateY(-1px);
     }
 
-    /* ── Loading / Error ── */
-    #loading, #error-msg {
-      display: flex;
-      flex-direction: column;
+    .ui-badge {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      min-height: 300px;
-      gap: 1rem;
-      color: var(--muted);
-      font-size: 0.9rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      padding: 0.18rem 0.58rem;
+      font-size: 0.69rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
     }
 
-    .spinner {
-      width: 36px; height: 36px;
-      border: 3px solid var(--border);
-      border-top-color: var(--purple);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    #error-msg { color: #f87171; }
-    #error-msg code {
-      background: var(--surface2);
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      font-size: 0.78rem;
-      color: var(--muted);
+    .badge-postgres {
+      color: hsl(var(--postgres));
+      border-color: hsla(var(--postgres), 0.24);
+      background: hsla(var(--postgres), 0.09);
     }
 
-    #dashboard { display: none; }
+    .badge-dynamo {
+      color: hsl(var(--dynamo));
+      border-color: hsla(var(--dynamo), 0.26);
+      background: hsla(var(--dynamo), 0.1);
+    }
+
+    .badge-mongodb {
+      color: hsl(var(--mongodb));
+      border-color: hsla(var(--mongodb), 0.24);
+      background: hsla(var(--mongodb), 0.09);
+    }
+
+    .mono {
+      font-family: "IBM Plex Mono", monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 0.8rem;
+    }
+
+    .winner-pill {
+      border-radius: 999px;
+      border: 1px solid hsl(var(--border));
+      font-size: 0.68rem;
+      color: hsl(var(--muted-foreground));
+      padding: 0.18rem 0.55rem;
+      background: hsl(var(--muted));
+      display: inline-flex;
+      align-items: center;
+      gap: 0.24rem;
+    }
+
+    .winner-pill.fast {
+      border-color: hsla(var(--ring), 0.25);
+      color: hsl(var(--foreground));
+      background: hsla(var(--ring), 0.1);
+    }
+
+    .table-empty {
+      text-align: center;
+      color: hsl(var(--muted-foreground));
+      padding: 1.6rem;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .is-ready .reveal {
+      animation: reveal 420ms ease forwards;
+      animation-delay: var(--delay, 0ms);
+    }
+
+    @keyframes reveal {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 1120px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .controls-card {
+        grid-template-columns: 1fr;
+      }
+
+      .visual-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .app-header {
+        align-items: flex-start;
+      }
+
+      .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 680px) {
+      body {
+        padding: 1rem;
+      }
+
+      .app-header,
+      .kpi-card,
+      .controls-card,
+      .winners-card,
+      .chart-card,
+      .table-header {
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal,
+      .ui-button,
+      .kpi-card,
+      tbody tr,
+      .winner-item,
+      .tabs-trigger {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+      }
+    }
   </style>
 </head>
 <body>
-
-<!-- Header -->
-<header>
-  <div class="header-left">
-    <h1>Database Benchmark Dashboard</h1>
-    <p class="subtitle">
-      <span class="tag-pg">PostgreSQL</span>
-      <span class="tag-dynamo">DynamoDB</span>
-      <span class="tag-mongo">MongoDB</span>
-      — e-commerce workload · 50K users · 100K orders
-    </p>
-  </div>
-  <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
-    ↻ Refresh
-  </button>
-</header>
-
-<!-- Loading State -->
-<div id="loading">
-  <div class="spinner"></div>
-  <span>Loading benchmark results...</span>
-</div>
-
-<!-- Error State -->
-<div id="error-msg" style="display:none">
-  <span>⚠ Could not load results</span>
-  <code>Run <strong>python run.py</strong> first to generate results.csv</code>
-</div>
-
-<!-- Dashboard (shown after data loads) -->
-<div id="dashboard">
-
-  <!-- Summary Cards -->
-  <div class="summary-grid" id="summary-cards"></div>
-
-  <!-- Scenario filter -->
-  <div class="filter-bar">
-    <label>Filter:</label>
-    <button class="filter-chip active" id="chip-all" onclick="applyFilter('all', this)">All scenarios</button>
-    <button class="filter-chip" id="chip-point_lookup"   onclick="applyFilter('point_lookup', this)">Point Lookup</button>
-    <button class="filter-chip" id="chip-complex_join"   onclick="applyFilter('complex_join', this)">Complex Join</button>
-    <button class="filter-chip" id="chip-bulk_write"     onclick="applyFilter('bulk_write', this)">Bulk Write</button>
-    <button class="filter-chip" id="chip-range_query"    onclick="applyFilter('range_query', this)">Range Query</button>
-    <button class="filter-chip" id="chip-aggregation"    onclick="applyFilter('aggregation', this)">Aggregation</button>
-  </div>
-
-  <!-- Charts -->
-  <div class="charts-grid">
-    <div class="chart-card">
-      <h3><span class="dot" style="background:var(--pg)"></span> P99 Latency by Scenario</h3>
-      <canvas id="p99Chart"></canvas>
-    </div>
-    <div class="chart-card">
-      <h3><span class="dot" style="background:var(--dynamo)"></span> Average Latency by Scenario</h3>
-      <canvas id="avgChart"></canvas>
+  <div id="loadingState" class="state-shell">
+    <div>
+      <div class="spinner"></div>
+      <p>Loading benchmark results...</p>
     </div>
   </div>
 
-  <!-- Raw Table -->
-  <div class="table-card">
-    <div class="table-header">
-      <h2>Raw Results</h2>
-      <span class="row-count" id="row-count">— rows</span>
+  <div id="errorState" class="state-shell hidden">
+    <div>
+      <p style="font-family: 'Sora', 'Segoe UI', sans-serif; font-weight: 600; margin-bottom: 0.45rem; color: hsl(var(--foreground));">
+        Dashboard data is unavailable
+      </p>
+      <p style="margin-bottom: 0.8rem;">Run <strong>python run.py</strong> and refresh.</p>
+      <button id="retryButton" class="ui-button ui-button-outline" type="button">
+        <span class="refresh-icon" aria-hidden="true">&#10227;</span>
+        Retry
+      </button>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th>Scenario</th>
-          <th>Database</th>
-          <th>Avg (ms)</th>
-          <th>P50 (ms)</th>
-          <th>P95 (ms)</th>
-          <th>P99 (ms)</th>
-          <th>Winner</th>
-        </tr>
-      </thead>
-      <tbody id="results-table"></tbody>
-    </table>
   </div>
 
-</div><!-- /#dashboard -->
+  <main id="app" class="app-shell hidden" aria-live="polite">
+    <header class="ui-card app-header reveal" style="--delay: 30ms;">
+      <div>
+        <p class="eyebrow">PitLane</p>
+        <h1 class="title">PitLane Performance Dashboard</h1>
+        <p class="subtitle">PostgreSQL, DynamoDB Local, and MongoDB benchmarked across five e-commerce scenarios.</p>
+      </div>
+      <div class="header-actions">
+        <span class="time-pill" id="updatedAt">Updated: --</span>
+        <button id="refreshButton" class="ui-button ui-button-outline" type="button">
+          <span class="refresh-icon" aria-hidden="true">&#10227;</span>
+          Refresh Data
+        </button>
+      </div>
+    </header>
 
-<script>
-  const DB_COLORS = {
-    postgres: { bg: "rgba(96,165,250,0.75)",  border: "#60a5fa" },
-    dynamo:   { bg: "rgba(52,211,153,0.75)",  border: "#34d399" },
-    mongodb:  { bg: "rgba(251,146,60,0.75)",  border: "#fb923c" },
-  };
+    <section id="kpiGrid" class="kpi-grid reveal" style="--delay: 80ms;"></section>
 
-  const BADGE = {
-    postgres: "badge-pg",
-    dynamo:   "badge-dynamo",
-    mongodb:  "badge-mongo",
-  };
+    <section class="ui-card controls-card reveal" style="--delay: 120ms;">
+      <div>
+        <label class="field-label" for="scenarioSelect">Scenario</label>
+        <select id="scenarioSelect" class="ui-select" aria-label="Scenario filter"></select>
+      </div>
+      <div>
+        <span class="field-label">Primary Metric</span>
+        <div class="ui-tabs-list" role="tablist" aria-label="Metric selector">
+          <button class="tabs-trigger active" type="button" role="tab" aria-selected="true" data-metric="avg">Average</button>
+          <button class="tabs-trigger" type="button" role="tab" aria-selected="false" data-metric="p95">P95</button>
+          <button class="tabs-trigger" type="button" role="tab" aria-selected="false" data-metric="p99">P99</button>
+        </div>
+      </div>
+      <div>
+        <label class="field-label" for="searchInput">Search</label>
+        <input id="searchInput" class="ui-input" type="search" placeholder="Search scenario or database" aria-label="Search rows" />
+      </div>
+    </section>
 
-  const DB_VAL_CLASS = {
-    postgres: "pg-val",
-    dynamo:   "dynamo-val",
-    mongodb:  "mongo-val",
-  };
+    <section class="ui-card winners-card reveal" style="--delay: 150ms;">
+      <div class="section-head">
+        <h2>Scenario Leaders</h2>
+        <p class="section-note">Fastest database by average latency.</p>
+      </div>
+      <div id="winnerStrip" class="winner-strip"></div>
+    </section>
 
-  const CARD_CLASS = {
-    postgres: "pg-card",
-    dynamo:   "dynamo-card",
-    mongodb:  "mongo-card",
-  };
+    <section class="visual-grid">
+      <article class="ui-card chart-card reveal" style="--delay: 190ms;">
+        <div class="section-head">
+          <h2 id="metricTitle">Average latency by scenario</h2>
+          <p class="section-note">Grouped comparison by database</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="scenarioChart" aria-label="Scenario chart" role="img"></canvas>
+        </div>
+      </article>
 
-  let allData        = [];
-  let p99ChartInst   = null;
-  let avgChartInst   = null;
-  let activeFilter   = "all";
+      <article class="ui-card chart-card reveal" style="--delay: 220ms;">
+        <div class="section-head">
+          <h2 id="profileTitle">Latency profile</h2>
+          <p class="section-note" id="profileSubtitle">Scenario: all</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="profileChart" aria-label="Profile chart" role="img"></canvas>
+        </div>
+      </article>
+    </section>
 
-  // ── Data loading ───────────────────────────────────────────────────
+    <section class="ui-card table-card reveal" style="--delay: 250ms;">
+      <div class="table-header">
+        <div>
+          <h2 style="font-family: 'Sora', 'Segoe UI', sans-serif; font-size: 0.95rem; font-weight: 600; letter-spacing: -0.01em;">Detailed Results</h2>
+          <p class="section-note">Sortable metrics with scenario and database filters.</p>
+        </div>
+        <span id="rowCount" class="row-count">0 rows</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><button class="sort-button" type="button" data-sort-key="scenario">Scenario <span class="arrow">-</span></button></th>
+              <th><button class="sort-button" type="button" data-sort-key="db">Database <span class="arrow">-</span></button></th>
+              <th><button class="sort-button" type="button" data-sort-key="avg">Avg (ms) <span class="arrow">-</span></button></th>
+              <th><button class="sort-button" type="button" data-sort-key="p50">P50 (ms) <span class="arrow">-</span></button></th>
+              <th><button class="sort-button" type="button" data-sort-key="p95">P95 (ms) <span class="arrow">-</span></button></th>
+              <th><button class="sort-button" type="button" data-sort-key="p99">P99 (ms) <span class="arrow">-</span></button></th>
+              <th>Winner</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
 
-  async function loadData() {
-    document.getElementById("loading").style.display    = "flex";
-    document.getElementById("dashboard").style.display  = "none";
-    document.getElementById("error-msg").style.display  = "none";
-
-    try {
-      const res = await fetch("/api/results");
-      if (!res.ok) throw new Error(await res.text());
-      allData = await res.json();
-
-      buildSummaryCards(allData);
-      applyFilter(activeFilter, document.getElementById("chip-" + activeFilter) || document.getElementById("chip-all"));
-
-      document.getElementById("loading").style.display    = "none";
-      document.getElementById("dashboard").style.display  = "block";
-    } catch (err) {
-      document.getElementById("loading").style.display   = "none";
-      document.getElementById("error-msg").style.display = "flex";
-      console.error(err);
-    }
-  }
-
-  // ── Summary cards ──────────────────────────────────────────────────
-
-  function buildSummaryCards(data) {
-    const dbs = [...new Set(data.map(d => d.db))];
-    const el  = document.getElementById("summary-cards");
-    el.innerHTML = "";
-
-    dbs.forEach(db => {
-      const rows    = data.filter(d => d.db === db);
-      const bestAvg = Math.min(...rows.map(r => r.avg)).toFixed(2);
-      const bestP99 = Math.min(...rows.map(r => r.p99)).toFixed(2);
-      const bestP95 = Math.min(...rows.map(r => r.p95)).toFixed(2);
-      const scenarios = rows.length;
-
-      el.innerHTML += `
-        <div class="card ${CARD_CLASS[db] || ''}">
-          <div class="db-label">${db}</div>
-          <div class="big-value ${DB_VAL_CLASS[db] || ''}">${bestAvg}<span class="big-unit">ms</span></div>
-          <div class="metrics-row">
-            <div class="metric">P95 <strong>${bestP95}ms</strong></div>
-            <div class="metric">P99 <strong>${bestP99}ms</strong></div>
-            <div class="metric">Scenarios <strong>${scenarios}</strong></div>
-          </div>
-        </div>`;
-    });
-  }
-
-  // ── Filter ─────────────────────────────────────────────────────────
-
-  function applyFilter(scenarioKey, clickedEl) {
-    activeFilter = scenarioKey;
-    document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
-    if (clickedEl) clickedEl.classList.add("active");
-
-    const filtered = scenarioKey === "all"
-      ? allData
-      : allData.filter(d => d.scenario === scenarioKey);
-
-    buildCharts(filtered);
-    buildTable(filtered);
-    document.getElementById("row-count").textContent = `${filtered.length} rows`;
-  }
-
-  // ── Charts ─────────────────────────────────────────────────────────
-
-  const CHART_OPTS = (metric) => ({
-    responsive: true,
-    animation: { duration: 400 },
-    plugins: {
-      legend: { labels: { color: "#8b949e", font: { size: 11, family: "Inter" }, boxWidth: 12, padding: 14 } },
-      tooltip: {
-        backgroundColor: "#1c2128",
-        borderColor: "#30363d",
-        borderWidth: 1,
-        titleColor: "#e6edf3",
-        bodyColor: "#8b949e",
-        callbacks: { label: ctx => `  ${ctx.dataset.label}: ${ctx.raw} ms` }
-      }
-    },
-    scales: {
-      x: {
-        ticks: { color: "#8b949e", font: { size: 10 } },
-        grid:  { color: "rgba(48,54,61,0.5)" }
+  <script>
+    const DB_META = {
+      postgres: {
+        label: "PostgreSQL",
+        line: "#2563eb",
+        fill: "rgba(37, 99, 235, 0.24)",
+        badge: "badge-postgres",
       },
-      y: {
-        ticks: { color: "#8b949e", font: { size: 10 } },
-        grid:  { color: "#30363d" },
-        title: { display: true, text: "ms", color: "#8b949e", font: { size: 10 } }
+      dynamo: {
+        label: "DynamoDB",
+        line: "#059669",
+        fill: "rgba(5, 150, 105, 0.24)",
+        badge: "badge-dynamo",
+      },
+      mongodb: {
+        label: "MongoDB",
+        line: "#ea580c",
+        fill: "rgba(234, 88, 12, 0.24)",
+        badge: "badge-mongodb",
+      },
+    };
+
+    const METRIC_LABELS = {
+      avg: "Average",
+      p50: "P50",
+      p95: "P95",
+      p99: "P99",
+      min: "Min",
+      max: "Max",
+    };
+
+    const CHART_COLORS = {
+      legend: "#475569",
+      axis: "#64748b",
+      grid: "#e2e8f0",
+      border: "#cbd5e1",
+      tooltipBg: "#ffffff",
+      tooltipTitle: "#0f172a",
+      tooltipBody: "#334155",
+    };
+
+    const state = {
+      rows: [],
+      scenario: "all",
+      metric: "avg",
+      search: "",
+      sortKey: "scenario",
+      sortDir: "asc",
+      charts: {
+        scenario: null,
+        profile: null,
+      },
+    };
+
+    const els = {
+      loadingState: document.getElementById("loadingState"),
+      errorState: document.getElementById("errorState"),
+      app: document.getElementById("app"),
+      retryButton: document.getElementById("retryButton"),
+      refreshButton: document.getElementById("refreshButton"),
+      updatedAt: document.getElementById("updatedAt"),
+      scenarioSelect: document.getElementById("scenarioSelect"),
+      searchInput: document.getElementById("searchInput"),
+      metricButtons: [...document.querySelectorAll(".tabs-trigger")],
+      kpiGrid: document.getElementById("kpiGrid"),
+      winnerStrip: document.getElementById("winnerStrip"),
+      metricTitle: document.getElementById("metricTitle"),
+      profileTitle: document.getElementById("profileTitle"),
+      profileSubtitle: document.getElementById("profileSubtitle"),
+      rowCount: document.getElementById("rowCount"),
+      resultsBody: document.getElementById("resultsBody"),
+      sortButtons: [...document.querySelectorAll(".sort-button")],
+      scenarioChart: document.getElementById("scenarioChart"),
+      profileChart: document.getElementById("profileChart"),
+    };
+
+    const NUMERIC_KEYS = new Set(["avg", "p50", "p95", "p99", "min", "max"]);
+
+    function formatScenario(value) {
+      if (!value) return "";
+      return value
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+    }
+
+    function formatMetric(value) {
+      if (typeof value !== "number" || Number.isNaN(value)) return "-";
+      return value.toFixed(3);
+    }
+
+    function setView(mode) {
+      els.loadingState.classList.toggle("hidden", mode !== "loading");
+      els.errorState.classList.toggle("hidden", mode !== "error");
+      els.app.classList.toggle("hidden", mode !== "app");
+    }
+
+    function nowStamp() {
+      const now = new Date();
+      return `Updated: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+    }
+
+    function normalizeRows(rows) {
+      return rows.map((row) => ({
+        ...row,
+        avg: Number(row.avg),
+        p50: Number(row.p50),
+        p95: Number(row.p95),
+        p99: Number(row.p99),
+        min: Number(row.min),
+        max: Number(row.max),
+      }));
+    }
+
+    async function loadData() {
+      setView("loading");
+      els.refreshButton?.classList.add("is-loading");
+      els.retryButton?.classList.add("is-loading");
+
+      try {
+        const response = await fetch("/api/results", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const json = await response.json();
+        if (!Array.isArray(json) || json.length === 0) {
+          throw new Error("No benchmark rows found.");
+        }
+
+        state.rows = normalizeRows(json);
+        ensureScenarioExists();
+        populateScenarioSelect();
+        renderDashboard();
+        els.updatedAt.textContent = nowStamp();
+        setView("app");
+
+        requestAnimationFrame(() => {
+          els.app.classList.add("is-ready");
+        });
+      } catch (error) {
+        console.error(error);
+        setView("error");
+      } finally {
+        els.refreshButton?.classList.remove("is-loading");
+        els.retryButton?.classList.remove("is-loading");
       }
     }
-  });
 
-  function buildCharts(data) {
-    const scenarios = [...new Set(data.map(d => d.scenario))];
-    const dbs       = [...new Set(data.map(d => d.db))];
+    function ensureScenarioExists() {
+      const scenarios = [...new Set(state.rows.map((row) => row.scenario))];
+      if (state.scenario !== "all" && !scenarios.includes(state.scenario)) {
+        state.scenario = "all";
+      }
+    }
 
-    const makeDatasets = (metric) => dbs.map(db => ({
-      label: db,
-      data: scenarios.map(s => {
-        const row = data.find(d => d.scenario === s && d.db === db);
-        return row ? row[metric] : null;
-      }),
-      backgroundColor: DB_COLORS[db]?.bg    || "#888",
-      borderColor:     DB_COLORS[db]?.border || "#888",
-      borderWidth: 1,
-      borderRadius: 5,
-      skipNull: true,
-    }));
+    function populateScenarioSelect() {
+      const scenarios = [...new Set(state.rows.map((row) => row.scenario))].sort();
 
-    const labels = scenarios.map(s => s.replace(/_/g, " "));
+      els.scenarioSelect.innerHTML = "";
 
-    if (p99ChartInst) p99ChartInst.destroy();
-    if (avgChartInst) avgChartInst.destroy();
+      const allOption = document.createElement("option");
+      allOption.value = "all";
+      allOption.textContent = "All scenarios";
+      els.scenarioSelect.appendChild(allOption);
 
-    p99ChartInst = new Chart(document.getElementById("p99Chart"), {
-      type: "bar",
-      data: { labels, datasets: makeDatasets("p99") },
-      options: CHART_OPTS("p99"),
-    });
-
-    avgChartInst = new Chart(document.getElementById("avgChart"), {
-      type: "bar",
-      data: { labels, datasets: makeDatasets("avg") },
-      options: CHART_OPTS("avg"),
-    });
-  }
-
-  // ── Table ──────────────────────────────────────────────────────────
-
-  function buildTable(data) {
-    const tbody = document.getElementById("results-table");
-    tbody.innerHTML = "";
-
-    // Determine winner per scenario
-    const scenarios = [...new Set(data.map(d => d.scenario))];
-    const winners = {};
-    scenarios.forEach(s => {
-      const rows = data.filter(d => d.scenario === s);
-      if (rows.length) winners[s] = rows.reduce((a, b) => a.avg < b.avg ? a : b).db;
-    });
-
-    let grouped = {};
-    scenarios.forEach(s => {
-      grouped[s] = data.filter(d => d.scenario === s);
-    });
-
-    scenarios.forEach(s => {
-      grouped[s].forEach((row, idx) => {
-        const isWinner = winners[s] === row.db;
-        const scenarioLabel = idx === 0
-          ? `<td class="scenario-cell" rowspan="${grouped[s].length}">${s.replace(/_/g, " ")}</td>`
-          : "";
-
-        tbody.innerHTML += `
-          <tr>
-            ${scenarioLabel}
-            <td><span class="badge ${BADGE[row.db] || ''}">${row.db}</span></td>
-            <td class="latency-cell">${row.avg}</td>
-            <td class="latency-cell">${row.p50}</td>
-            <td class="latency-cell">${row.p95}</td>
-            <td class="latency-cell">${row.p99}</td>
-            <td>${isWinner ? '<span class="winner-badge">✓ fastest</span>' : ""}</td>
-          </tr>`;
+      scenarios.forEach((scenario) => {
+        const option = document.createElement("option");
+        option.value = scenario;
+        option.textContent = formatScenario(scenario);
+        els.scenarioSelect.appendChild(option);
       });
-    });
-  }
 
-  // ── Init ──────────────────────────────────────────────────────────
-  loadData();
-</script>
+      els.scenarioSelect.value = state.scenario;
+    }
+
+    function getScenarioRows() {
+      if (state.scenario === "all") {
+        return [...state.rows];
+      }
+      return state.rows.filter((row) => row.scenario === state.scenario);
+    }
+
+    function getVisibleRows(baseRows) {
+      const term = state.search.trim().toLowerCase();
+      let rows = baseRows;
+
+      if (term) {
+        rows = rows.filter((row) => {
+          return row.scenario.toLowerCase().includes(term) || row.db.toLowerCase().includes(term);
+        });
+      }
+
+      return sortRows(rows);
+    }
+
+    function sortRows(rows) {
+      const direction = state.sortDir === "asc" ? 1 : -1;
+      const key = state.sortKey;
+
+      return [...rows].sort((a, b) => {
+        if (NUMERIC_KEYS.has(key)) {
+          return (a[key] - b[key]) * direction;
+        }
+
+        const left = String(a[key] || "").toLowerCase();
+        const right = String(b[key] || "").toLowerCase();
+        if (left < right) return -1 * direction;
+        if (left > right) return 1 * direction;
+        return 0;
+      });
+    }
+
+    function computeWinners(rows) {
+      const winners = {};
+      const scenarios = [...new Set(rows.map((row) => row.scenario))];
+
+      scenarios.forEach((scenario) => {
+        const group = rows.filter((row) => row.scenario === scenario);
+        if (!group.length) return;
+
+        const winner = group.reduce((best, current) => {
+          return current.avg < best.avg ? current : best;
+        });
+
+        winners[scenario] = winner.db;
+      });
+
+      return winners;
+    }
+
+    function renderKpis(baseRows) {
+      const dbs = Object.keys(DB_META);
+      els.kpiGrid.innerHTML = "";
+
+      dbs.forEach((db) => {
+        const rows = baseRows.filter((row) => row.db === db);
+
+        if (!rows.length) {
+          els.kpiGrid.insertAdjacentHTML(
+            "beforeend",
+            `
+            <article class="ui-card kpi-card" data-db="${db}">
+              <p class="db-name">${DB_META[db].label}</p>
+              <p class="kpi-value">-<small>ms</small></p>
+              <p class="kpi-meta">No rows for this filter.</p>
+            </article>
+          `
+          );
+          return;
+        }
+
+        const bestAvg = rows.reduce((best, row) => (row.avg < best.avg ? row : best));
+        const bestP95 = Math.min(...rows.map((row) => row.p95));
+        const bestP99 = Math.min(...rows.map((row) => row.p99));
+
+        els.kpiGrid.insertAdjacentHTML(
+          "beforeend",
+          `
+          <article class="ui-card kpi-card" data-db="${db}">
+            <p class="db-name">${DB_META[db].label}</p>
+            <p class="kpi-value">${formatMetric(bestAvg.avg)}<small>ms best avg</small></p>
+            <div class="kpi-meta">
+              <span>P95 <strong>${formatMetric(bestP95)}</strong></span>
+              <span>P99 <strong>${formatMetric(bestP99)}</strong></span>
+              <span>Best on <strong>${formatScenario(bestAvg.scenario)}</strong></span>
+            </div>
+          </article>
+        `
+        );
+      });
+    }
+
+    function renderWinnerStrip(baseRows) {
+      const winners = computeWinners(baseRows);
+      const scenarios = [...new Set(baseRows.map((row) => row.scenario))].sort();
+
+      if (!scenarios.length) {
+        els.winnerStrip.innerHTML = `<span class="section-note">No scenario data available.</span>`;
+        return;
+      }
+
+      els.winnerStrip.innerHTML = scenarios
+        .map((scenario) => {
+          const winnerDb = winners[scenario];
+          const dbMeta = DB_META[winnerDb];
+          if (!dbMeta) return "";
+
+          return `
+            <span class="winner-item">
+              <span class="db-dot" style="background:${dbMeta.line}"></span>
+              <strong>${formatScenario(scenario)}</strong>
+              <span>${dbMeta.label}</span>
+            </span>
+          `;
+        })
+        .join("");
+    }
+
+    function getChartOptions(yLabel) {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+          duration: 520,
+          easing: "easeOutCubic",
+        },
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            labels: {
+              color: CHART_COLORS.legend,
+              font: {
+                family: "Public Sans",
+                size: 11,
+              },
+              boxWidth: 10,
+              boxHeight: 10,
+            },
+          },
+          tooltip: {
+            backgroundColor: CHART_COLORS.tooltipBg,
+            titleColor: CHART_COLORS.tooltipTitle,
+            bodyColor: CHART_COLORS.tooltipBody,
+            borderColor: CHART_COLORS.border,
+            borderWidth: 1,
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${formatMetric(Number(ctx.raw))} ms`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: CHART_COLORS.axis,
+              font: {
+                family: "Public Sans",
+                size: 10,
+              },
+            },
+            grid: {
+              color: CHART_COLORS.grid,
+              drawTicks: false,
+            },
+            border: {
+              color: CHART_COLORS.border,
+            },
+          },
+          y: {
+            ticks: {
+              color: CHART_COLORS.axis,
+              font: {
+                family: "IBM Plex Mono",
+                size: 10,
+              },
+              callback: (value) => `${value} ms`,
+            },
+            title: {
+              display: true,
+              text: yLabel,
+              color: CHART_COLORS.axis,
+              font: {
+                family: "Public Sans",
+                size: 10,
+                weight: "600",
+              },
+            },
+            grid: {
+              color: CHART_COLORS.grid,
+            },
+            border: {
+              color: CHART_COLORS.border,
+            },
+          },
+        },
+      };
+    }
+
+    function renderScenarioChart(baseRows) {
+      const scenarios = [...new Set(baseRows.map((row) => row.scenario))].sort();
+      const dbs = Object.keys(DB_META);
+
+      const datasets = dbs.map((db) => {
+        const meta = DB_META[db];
+        return {
+          label: meta.label,
+          data: scenarios.map((scenario) => {
+            const found = baseRows.find((row) => row.scenario === scenario && row.db === db);
+            return found ? found[state.metric] : null;
+          }),
+          backgroundColor: meta.fill,
+          borderColor: meta.line,
+          borderWidth: 1,
+          borderRadius: 6,
+          skipNull: true,
+        };
+      });
+
+      if (state.charts.scenario) {
+        state.charts.scenario.destroy();
+      }
+
+      state.charts.scenario = new Chart(els.scenarioChart, {
+        type: "bar",
+        data: {
+          labels: scenarios.map((scenario) => formatScenario(scenario)),
+          datasets,
+        },
+        options: getChartOptions(`${METRIC_LABELS[state.metric]} latency`),
+      });
+
+      els.metricTitle.textContent = `${METRIC_LABELS[state.metric]} latency by scenario`;
+    }
+
+    function resolveProfileScenario(baseRows) {
+      if (!baseRows.length) return null;
+
+      if (state.scenario !== "all") {
+        return state.scenario;
+      }
+
+      const fastest = baseRows.reduce((best, row) => {
+        return row.avg < best.avg ? row : best;
+      });
+      return fastest.scenario;
+    }
+
+    function renderProfileChart(baseRows) {
+      const profileScenario = resolveProfileScenario(baseRows);
+      if (!profileScenario) {
+        if (state.charts.profile) {
+          state.charts.profile.destroy();
+          state.charts.profile = null;
+        }
+        els.profileSubtitle.textContent = "Scenario: none";
+        return;
+      }
+
+      const scenarioRows = baseRows.filter((row) => row.scenario === profileScenario);
+      const metrics = ["avg", "p50", "p95", "p99"];
+
+      const datasets = scenarioRows.map((row) => {
+        const meta = DB_META[row.db];
+        return {
+          label: meta.label,
+          data: metrics.map((metric) => row[metric]),
+          borderColor: meta.line,
+          backgroundColor: meta.fill,
+          tension: 0.35,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          fill: false,
+          borderWidth: 2,
+        };
+      });
+
+      if (state.charts.profile) {
+        state.charts.profile.destroy();
+      }
+
+      state.charts.profile = new Chart(els.profileChart, {
+        type: "line",
+        data: {
+          labels: metrics.map((metric) => METRIC_LABELS[metric]),
+          datasets,
+        },
+        options: getChartOptions("Latency profile"),
+      });
+
+      els.profileTitle.textContent = "Latency profile";
+      els.profileSubtitle.textContent = `Scenario: ${formatScenario(profileScenario)}`;
+    }
+
+    function renderSortIndicators() {
+      els.sortButtons.forEach((button) => {
+        const key = button.dataset.sortKey;
+        const arrow = button.querySelector(".arrow");
+        if (!arrow) return;
+
+        if (key !== state.sortKey) {
+          arrow.textContent = "-";
+          return;
+        }
+
+        arrow.textContent = state.sortDir === "asc" ? "^" : "v";
+      });
+    }
+
+    function renderTable(baseRows, visibleRows) {
+      const winners = computeWinners(baseRows);
+      els.resultsBody.innerHTML = "";
+
+      if (!visibleRows.length) {
+        els.resultsBody.innerHTML = `<tr><td class="table-empty" colspan="7">No rows match the current filters.</td></tr>`;
+        els.rowCount.textContent = "0 rows";
+        return;
+      }
+
+      visibleRows.forEach((row, index) => {
+        const dbMeta = DB_META[row.db] || {
+          label: row.db,
+          badge: "",
+        };
+
+        const isWinner = winners[row.scenario] === row.db;
+        const tr = document.createElement("tr");
+        tr.style.animationDelay = `${index * 18}ms`;
+
+        tr.innerHTML = `
+          <td>${formatScenario(row.scenario)}</td>
+          <td><span class="ui-badge ${dbMeta.badge}">${dbMeta.label}</span></td>
+          <td class="mono">${formatMetric(row.avg)}</td>
+          <td class="mono">${formatMetric(row.p50)}</td>
+          <td class="mono">${formatMetric(row.p95)}</td>
+          <td class="mono">${formatMetric(row.p99)}</td>
+          <td>${isWinner ? '<span class="winner-pill fast">fastest</span>' : '<span class="winner-pill">-</span>'}</td>
+        `;
+
+        els.resultsBody.appendChild(tr);
+      });
+
+      els.rowCount.textContent = `${visibleRows.length} rows`;
+      renderSortIndicators();
+    }
+
+    function renderDashboard() {
+      const baseRows = getScenarioRows();
+      const visibleRows = getVisibleRows(baseRows);
+
+      renderKpis(baseRows);
+      renderWinnerStrip(baseRows);
+      renderScenarioChart(baseRows);
+      renderProfileChart(baseRows);
+      renderTable(baseRows, visibleRows);
+    }
+
+    function handleSort(sortKey) {
+      if (state.sortKey === sortKey) {
+        state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        state.sortKey = sortKey;
+        state.sortDir = NUMERIC_KEYS.has(sortKey) ? "asc" : "asc";
+      }
+
+      renderDashboard();
+    }
+
+    function wireEvents() {
+      els.refreshButton.addEventListener("click", () => {
+        loadData();
+      });
+
+      els.retryButton.addEventListener("click", () => {
+        loadData();
+      });
+
+      els.scenarioSelect.addEventListener("change", (event) => {
+        state.scenario = event.target.value;
+        renderDashboard();
+      });
+
+      els.searchInput.addEventListener("input", (event) => {
+        state.search = event.target.value;
+        renderDashboard();
+      });
+
+      els.metricButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const metric = button.dataset.metric;
+          if (!metric || metric === state.metric) return;
+
+          state.metric = metric;
+
+          els.metricButtons.forEach((item) => {
+            const isActive = item.dataset.metric === metric;
+            item.classList.toggle("active", isActive);
+            item.setAttribute("aria-selected", String(isActive));
+          });
+
+          renderDashboard();
+        });
+      });
+
+      els.sortButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          handleSort(button.dataset.sortKey);
+        });
+      });
+    }
+
+    wireEvents();
+    loadData();
+  </script>
 </body>
 </html>

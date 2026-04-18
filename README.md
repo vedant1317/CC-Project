@@ -1,6 +1,6 @@
-# NoSQL vs Relational DB Performance Benchmark
+# PitLane
 
-Local benchmark project that compares PostgreSQL, MongoDB, and DynamoDB Local on realistic e-commerce workloads.
+PitLane is a local benchmark project that compares PostgreSQL, MongoDB, and DynamoDB Local on realistic e-commerce workloads.
 
 This repository includes:
 - Database containers (Docker Compose)
@@ -202,7 +202,7 @@ Available endpoints:
 ## Project Structure
 
 ```text
-CC-Project/
+PitLane/
 |- analyze.py
 |- benchmark.py
 |- docker-compose.yml

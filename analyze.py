@@ -37,9 +37,9 @@ for scenario in df["scenario"].unique():
 # ── P99 grouped bar chart ─────────────────────────────────────────────
 
 DB_COLORS = {
-    "postgres": "#60a5fa",
-    "dynamo":   "#34d399",
-    "mongodb":  "#fb923c",
+    "postgres": "#2563eb",
+    "dynamo":   "#059669",
+    "mongodb":  "#ea580c",
 }
 
 scenarios = df["scenario"].unique().tolist()
@@ -50,11 +50,11 @@ width = 0.25
 n_dbs = len(dbs)
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-fig.patch.set_facecolor("#0f1117")
+fig.patch.set_facecolor("#ffffff")
 
 for ax_idx, metric in enumerate(["p99", "avg"]):
     ax = axes[ax_idx]
-    ax.set_facecolor("#1e2130")
+    ax.set_facecolor("#ffffff")
 
     for i, db in enumerate(dbs):
         values = []
@@ -67,8 +67,8 @@ for ax_idx, metric in enumerate(["p99", "avg"]):
                       label=db,
                       color=DB_COLORS.get(db, "#888888"),
                       alpha=0.85,
-                      edgecolor="#0f1117",
-                      linewidth=0.5)
+                      edgecolor="#ffffff",
+                      linewidth=0.7)
 
         for bar, val in zip(bars, values):
             if val > 0:
@@ -77,30 +77,30 @@ for ax_idx, metric in enumerate(["p99", "avg"]):
                     bar.get_height() + 0.5,
                     f"{val:.1f}",
                     ha="center", va="bottom",
-                    fontsize=6.5, color="#94a3b8"
+                    fontsize=6.5, color="#334155"
                 )
 
     title_label = "P99 Latency" if metric == "p99" else "Average Latency"
-    ax.set_title(f"{title_label} by Scenario", color="#e2e8f0", fontsize=11, pad=10)
-    ax.set_ylabel("Latency (ms)", color="#64748b", fontsize=9)
+    ax.set_title(f"{title_label} by Scenario", color="#0f172a", fontsize=11, pad=10)
+    ax.set_ylabel("Latency (ms)", color="#475569", fontsize=9)
     ax.set_xticks(x)
     ax.set_xticklabels([s.replace("_", "\n") for s in scenarios],
-                       color="#94a3b8", fontsize=8)
-    ax.yaxis.set_tick_params(labelcolor="#64748b")
-    ax.tick_params(colors="#64748b")
-    ax.spines[:].set_color("#2d3148")
+                       color="#475569", fontsize=8)
+    ax.yaxis.set_tick_params(labelcolor="#475569")
+    ax.tick_params(colors="#475569")
+    ax.spines[:].set_color("#cbd5e1")
     ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.0f ms"))
-    ax.grid(axis="y", color="#2d3148", linewidth=0.5, linestyle="--")
+    ax.grid(axis="y", color="#e2e8f0", linewidth=0.7, linestyle="--")
     ax.legend(
-        facecolor="#1a1f2e", edgecolor="#2d3148",
-        labelcolor="#94a3b8", fontsize=8
+        facecolor="#ffffff", edgecolor="#cbd5e1",
+        labelcolor="#334155", fontsize=8
     )
 
 plt.suptitle(
-    "PostgreSQL vs DynamoDB vs MongoDB — Local Benchmark",
-    color="#e2e8f0", fontsize=13, fontweight="bold", y=1.01
+    "PitLane — PostgreSQL vs DynamoDB vs MongoDB",
+    color="#0f172a", fontsize=13, fontweight="bold", y=1.01
 )
 plt.tight_layout()
-plt.savefig(PNG_PATH, dpi=140, bbox_inches="tight", facecolor="#0f1117")
+plt.savefig(PNG_PATH, dpi=140, bbox_inches="tight", facecolor="#ffffff")
 print(f"\n[OK] Chart saved to {PNG_PATH}")
 # plt.show()

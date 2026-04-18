@@ -1,4 +1,4 @@
-# Run Project Guide
+# PitLane Run Guide
 
 This guide runs the full benchmark stack: PostgreSQL, MongoDB, DynamoDB Local, benchmark execution, and dashboard.
 
