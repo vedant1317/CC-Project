@@ -1,0 +1,66 @@
+{
+  "name": "pitlane-ecommerce-default",
+  "description": "Default PitLane workload with realistic read/write pressure for SQL vs NoSQL comparison.",
+  "version": "1.1",
+  "schema": {
+    "domain": "ecommerce",
+    "entities": ["users", "products", "orders", "order_items"]
+  },
+  "defaults": {
+    "runs": 200,
+    "concurrency": 24,
+    "warmup_runs": 5,
+    "sample_interval_seconds": 0.5
+  },
+  "scenarios": [
+    {
+      "id": "point_lookup",
+      "type": "builtin",
+      "targets": ["postgres", "dynamo", "mongodb"],
+      "runs": 300,
+      "concurrency": 48,
+      "params": {
+        "user_id": "$random_user_id"
+      }
+    },
+    {
+      "id": "complex_join",
+      "type": "builtin",
+      "targets": ["postgres", "mongodb"],
+      "runs": 180,
+      "concurrency": 32,
+      "params": {
+        "user_id": "$random_user_id"
+      }
+    },
+    {
+      "id": "bulk_write",
+      "type": "builtin",
+      "targets": ["postgres", "dynamo", "mongodb"],
+      "runs": 40,
+      "concurrency": 12,
+      "params": {
+        "batch_size": 100,
+        "status": "$random_status"
+      }
+    },
+    {
+      "id": "range_query",
+      "type": "builtin",
+      "targets": ["postgres", "mongodb"],
+      "runs": 180,
+      "concurrency": 24,
+      "params": {
+        "start_date": "$range_start_iso",
+        "end_date": "$range_end_iso"
+      }
+    },
+    {
+      "id": "aggregation",
+      "type": "builtin",
+      "targets": ["postgres", "mongodb"],
+      "runs": 12,
+      "concurrency": 4
+    }
+  ]
+}

@@ -89,6 +89,14 @@ python analyze.py
 uvicorn dashboard.main:app --reload
 ```
 
+## Fast smoke validation (recommended before full run)
+
+Use this to validate the pipeline quickly with reduced load:
+
+```powershell
+python run.py --workload workloads/default_workload.json --smoke
+```
+
 ## Troubleshooting
 
 - Error: `ResourceNotFoundException` for DynamoDB table

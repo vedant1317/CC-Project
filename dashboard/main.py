@@ -43,26 +43,50 @@ def get_results():
 
 @app.get("/api/summary")
 def get_summary():
-    """Return per-DB and per-scenario summary stats."""
+    """Return per-DB and per-scenario summary stats with decision signals."""
     if not CSV_PATH.exists():
         raise HTTPException(status_code=404, detail="No results yet. Run 'python run.py' first.")
 
     df = pd.read_csv(CSV_PATH)
 
-    # Best avg per DB
-    by_db = (
-        df.groupby("db")[["avg", "p99"]]
-        .min()
-        .reset_index()
-        .rename(columns={"avg": "best_avg", "p99": "best_p99"})
-        .to_dict(orient="records")
-    )
+    metric_columns = ["avg", "p99", "cost_index", "throughput_ops_s"]
+    available_metrics = [column for column in metric_columns if column in df.columns]
 
-    # Winner per scenario
+    if not available_metrics:
+        by_db = [{"db": item} for item in sorted(df["db"].unique().tolist())]
+    else:
+        aggregation = df.groupby("db")[available_metrics].min().reset_index()
+        rename_map = {
+            "avg": "best_avg",
+            "p99": "best_p99",
+            "cost_index": "best_cost_index",
+            "throughput_ops_s": "best_throughput_ops_s",
+        }
+        by_db = aggregation.rename(columns=rename_map).to_dict(orient="records")
+
+    # Winners per scenario for latency, cost, and recommendation.
     winners = {}
     for scenario, group in df.groupby("scenario"):
-        best = group.loc[group["avg"].idxmin()]
-        winners[scenario] = best["db"]
+        fastest = group.loc[group["avg"].idxmin()]["db"]
+
+        if "cost_index" in group.columns:
+            cheapest = group.loc[group["cost_index"].idxmin()]["db"]
+        else:
+            cheapest = fastest
+
+        if "decision_score" in group.columns:
+            recommended = group.loc[group["decision_score"].idxmin()]["db"]
+        elif "recommended" in group.columns:
+            recommendation_rows = group[group["recommended"] == True]  # noqa: E712
+            recommended = recommendation_rows.iloc[0]["db"] if not recommendation_rows.empty else fastest
+        else:
+            recommended = fastest
+
+        winners[scenario] = {
+            "fastest": fastest,
+            "cheapest": cheapest,
+            "recommended": recommended,
+        }
 
     return {"by_db": by_db, "winners": winners}
 

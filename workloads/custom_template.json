@@ -1,0 +1,98 @@
+{
+  "name": "custom-feature-eval",
+  "description": "Template workload to evaluate your own schema and query patterns.",
+  "version": "1.0",
+  "schema": {
+    "service": "orders-service",
+    "tables_or_collections": ["users", "orders", "products"],
+    "notes": "Document your entity model and index plan here."
+  },
+  "defaults": {
+    "runs": 160,
+    "concurrency": 20,
+    "warmup_runs": 4,
+    "sample_interval_seconds": 0.5
+  },
+  "scenarios": [
+    {
+      "id": "profile_lookup",
+      "type": "custom",
+      "description": "Primary-key read path for user profile loading.",
+      "targets": ["postgres", "dynamo", "mongodb"],
+      "runs": 220,
+      "concurrency": 40,
+      "mock_queries": {
+        "postgres": {
+          "kind": "sql",
+          "mode": "fetchone",
+          "query": "SELECT id, name, email FROM users WHERE id = %(user_id)s",
+          "params": {
+            "user_id": "$random_user_id"
+          }
+        },
+        "dynamo": {
+          "kind": "dynamo",
+          "operation": "get_item",
+          "key": {
+            "PK": "USER#$random_user_id",
+            "SK": "PROFILE"
+          }
+        },
+        "mongodb": {
+          "kind": "mongo",
+          "collection": "users",
+          "operation": "find_one",
+          "filter": {
+            "id": "$random_user_id"
+          }
+        }
+      }
+    },
+    {
+      "id": "order_write",
+      "type": "custom",
+      "description": "Transactional order write path.",
+      "targets": ["postgres", "dynamo", "mongodb"],
+      "runs": 120,
+      "concurrency": 18,
+      "mock_queries": {
+        "postgres": {
+          "kind": "sql",
+          "mode": "execute",
+          "commit": true,
+          "query": "INSERT INTO orders(id, user_id, total, status) VALUES(%(id)s, %(user_id)s, %(total)s, %(status)s)",
+          "params": {
+            "id": "$uuid",
+            "user_id": "$random_user_id",
+            "total": "$random_total",
+            "status": "$random_status"
+          }
+        },
+        "dynamo": {
+          "kind": "dynamo",
+          "operation": "put_item",
+          "item": {
+            "PK": "USER#$random_user_id",
+            "SK": "ORDER#$uuid",
+            "total": "$random_total",
+            "status": "$random_status",
+            "created_at": "$now_iso"
+          }
+        },
+        "mongodb": {
+          "kind": "mongo",
+          "collection": "orders",
+          "operation": "insert_one",
+          "document": {
+            "_id": "$uuid",
+            "user_id": "$random_user_id",
+            "total": "$random_total",
+            "status": "$random_status",
+            "created_at": "$now_iso",
+            "items": []
+          }
+        }
+      }
+    }
+  ]
+}

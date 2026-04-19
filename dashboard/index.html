@@ -641,7 +641,7 @@
       <div>
         <p class="eyebrow">PitLane</p>
         <h1 class="title">PitLane Performance Dashboard</h1>
-        <p class="subtitle">PostgreSQL, DynamoDB Local, and MongoDB benchmarked across five e-commerce scenarios.</p>
+        <p class="subtitle">Automated DB selection view across latency, throughput, CPU, memory, and cost signals.</p>
       </div>
       <div class="header-actions">
         <span class="time-pill" id="updatedAt">Updated: --</span>
@@ -721,6 +721,10 @@
               <th><button class="sort-button" type="button" data-sort-key="p50">P50 (ms) <span class="arrow">-</span></button></th>
               <th><button class="sort-button" type="button" data-sort-key="p95">P95 (ms) <span class="arrow">-</span></button></th>
               <th><button class="sort-button" type="button" data-sort-key="p99">P99 (ms) <span class="arrow">-</span></button></th>
+              <th><button class="sort-button" type="button" data-sort-key="throughput_ops_s">Ops/s <span class="arrow">-</span></button></th>
+              <th><button class="sort-button" type="button" data-sort-key="cpu_avg_pct">CPU Avg % <span class="arrow">-</span></button></th>
+              <th><button class="sort-button" type="button" data-sort-key="mem_avg_mb">Mem Avg MB <span class="arrow">-</span></button></th>
+              <th><button class="sort-button" type="button" data-sort-key="cost_index">Cost Index <span class="arrow">-</span></button></th>
               <th>Winner</th>
             </tr>
           </thead>
@@ -759,6 +763,10 @@
       p99: "P99",
       min: "Min",
       max: "Max",
+      throughput_ops_s: "Throughput",
+      cpu_avg_pct: "CPU Avg",
+      mem_avg_mb: "Mem Avg",
+      cost_index: "Cost",
     };
 
     const CHART_COLORS = {
@@ -806,7 +814,18 @@
       profileChart: document.getElementById("profileChart"),
     };
 
-    const NUMERIC_KEYS = new Set(["avg", "p50", "p95", "p99", "min", "max"]);
+    const NUMERIC_KEYS = new Set([
+      "avg",
+      "p50",
+      "p95",
+      "p99",
+      "min",
+      "max",
+      "throughput_ops_s",
+      "cpu_avg_pct",
+      "mem_avg_mb",
+      "cost_index",
+    ]);
 
     function formatScenario(value) {
       if (!value) return "";
@@ -840,6 +859,10 @@
         p99: Number(row.p99),
         min: Number(row.min),
         max: Number(row.max),
+        throughput_ops_s: Number(row.throughput_ops_s),
+        cpu_avg_pct: Number(row.cpu_avg_pct),
+        mem_avg_mb: Number(row.mem_avg_mb),
+        cost_index: Number(row.cost_index),
       }));
     }
 
@@ -1225,7 +1248,7 @@
       els.resultsBody.innerHTML = "";
 
       if (!visibleRows.length) {
-        els.resultsBody.innerHTML = `<tr><td class="table-empty" colspan="7">No rows match the current filters.</td></tr>`;
+        els.resultsBody.innerHTML = `<tr><td class="table-empty" colspan="11">No rows match the current filters.</td></tr>`;
         els.rowCount.textContent = "0 rows";
         return;
       }
@@ -1247,6 +1270,10 @@
           <td class="mono">${formatMetric(row.p50)}</td>
           <td class="mono">${formatMetric(row.p95)}</td>
           <td class="mono">${formatMetric(row.p99)}</td>
+          <td class="mono">${formatMetric(row.throughput_ops_s)}</td>
+          <td class="mono">${formatMetric(row.cpu_avg_pct)}</td>
+          <td class="mono">${formatMetric(row.mem_avg_mb)}</td>
+          <td class="mono">${formatMetric(row.cost_index)}</td>
           <td>${isWinner ? '<span class="winner-pill fast">fastest</span>' : '<span class="winner-pill">-</span>'}</td>
         `;
 
